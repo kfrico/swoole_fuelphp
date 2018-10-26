@@ -43,12 +43,22 @@ defined('FUEL_START_MEM') or define('FUEL_START_MEM', memory_get_usage());
 // Boot the app
 require APPPATH.'bootstrap.php';
 
-$http = new swoole_http_server("0.0.0.0", 8888);
+// disable cli
+\Fuel::$is_cli = getenv('DISABLE_CLI') ? false : \Fuel::$is_cli;
+
+$http = new swoole_http_server('0.0.0.0', 80, SWOOLE_BASE);
+$http->set([
+    'log_level' => SWOOLE_LOG_TRACE,
+    'trace_flags' => SWOOLE_TRACE_SERVER | SWOOLE_TRACE_HTTP2,
+    'worker_num' => 10,
+]);
+
 $http->on('request', function ($request, $response) {
 	$_GET = $request->get ?: array();
 	$_POST = $request->post ?: array();
 	$_COOKIE = $request->cookie ?: array();
 	$_FILES = $request->files ?: array();
+	$_SERVER = array_change_key_case($request->server, CASE_UPPER);
 
 	try
 	{
@@ -63,5 +73,10 @@ $http->on('request', function ($request, $response) {
 	// $fuel_response->send(true);
     $response->end($fuel_response->body());
 });
+
+$http->on('start', function (swoole_server $server){
+    echo "swoole server start.\n";
+});
+
 $http->start();
 
